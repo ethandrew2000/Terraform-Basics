@@ -1,0 +1,46 @@
+name: Verify Terraform and API
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: Check formatting
+        run: terraform fmt -check
+      - name: Initialize
+        run: terraform init -input=false
+      - name: Validate
+        run: terraform validate
+      - name: Plan
+        run: terraform plan -input=false -out=tfplan
+      - name: Apply
+        run: terraform apply -input=false tfplan
+      - name: Verify class API
+        run: |
+          curl --fail --retry 15 --retry-connrefused --retry-delay 2 http://localhost:8000/ -o response.json
+          python - <<'PY'
+          import json
+          from urllib.request import urlopen
+          with open("response.json") as f:
+              response = json.load(f)
+          print(json.dumps(response, indent=2))
+          assert "IT4200" in response["message"], response
+          with urlopen("http://localhost:8000/random-fact") as r:
+              fact = json.load(r)
+          assert isinstance(fact["fact"], str) and fact["fact"], fact
+          print(json.dumps(fact, indent=2))
+          PY
+      - name: Destroy assignment resources
+        if: always()
+        run: terraform destroy -auto-approve -input=false
