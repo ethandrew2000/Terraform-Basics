@@ -28,7 +28,7 @@ jobs:
         run: terraform apply -input=false tfplan
       - name: Verify class API
         run: |
-          curl --fail --retry 15 --retry-connrefused --retry-delay 2 http://localhost:8000/ -o response.json
+          curl --fail --retry 15 --retry-all-errors --retry-delay 2 http://localhost:8000/ -o response.json
           python - <<'PY'
           import json
           from urllib.request import urlopen
